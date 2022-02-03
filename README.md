@@ -11,5 +11,5 @@ killdefender.exe pid
 
 ![Alt Text](POC2.PNG)
 
-# Credits to Gabriel Landau
+# Credits
  https://elastic.github.io/security-research/whitepapers/2022/02/02.sandboxing-antimalware-products-for-fun-and-profit/article/
