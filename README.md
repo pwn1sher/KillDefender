@@ -1,5 +1,5 @@
 # Octoberfest7 Edit:
-This is a modified version of KillDefender by pwn1sher.  The original POC fails when run from an Administrator prompt because even though SeDebuPrivilege is enabled, the Admin user doesn't have the required permissions to access a System level process.  To get around this I added a small snippet of code to open winlogon's token and impersonate system via that token.  After impersonating System, the POC works like a dream.
+This is a modified version of KillDefender by pwn1sher.  The original POC fails when run from an Administrator prompt because even though SeDebugPrivilege is enabled, the Admin user doesn't have the required permissions to access a System level process.  To get around this I added a small snippet of code to open winlogon's token and impersonate system via that token.  After impersonating System, the POC works like a dream.
 
 Some observations about this technique:
 1) Unlike other methods to disable defender features (powershell Set-MpPreference...), tamper protection doesn't prevent an attacker from neutering Defender with this method.
