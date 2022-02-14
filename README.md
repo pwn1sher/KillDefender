@@ -3,7 +3,7 @@ A small POC to make defender useless by removing its token privileges and loweri
 
 # Usage
 
-killdefender.exe pid
+killdefender.exe 
 
 # Preview 
 
