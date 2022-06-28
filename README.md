@@ -1,4 +1,7 @@
 # Octoberfest7 Edit:
+
+6/28/2022: Microsoft has rolled out a patch that prevents opening a handle to the MsMpEng.exe token, and as such this tool no longer works. Not sure the patch ID, may work on older unpatched systems.  Verified on Win10 21H2 and Win11. 
+
 This is a modified version of KillDefender by pwn1sher.  The original POC fails when run from an Administrator prompt because even though SeDebugPrivilege is enabled, the Admin user doesn't have the required permissions to access a System level process.  To get around this I added a small snippet of code to open winlogon's token and impersonate system via that token.  After impersonating System, the POC works like a dream.
 
 Some observations about this technique:
